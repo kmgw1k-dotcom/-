@@ -133,6 +133,20 @@
             text-shadow: 2px 2px 0px #ffd700;
             text-align: center;
         }
+        /* ゲームオーバー時のスコアを2行にするためのCSS */
+        #game-over-score {
+            font-size: 20px;
+            color: #ff6f61;
+            font-weight: bold;
+            display: block; /* 常に改行させる */
+        }
+        #title-screen h1 {
+             /* H1のサイズを調整して改行に対応 */
+             font-size: 28px;
+             line-height: 1.2;
+             margin-bottom: 5px;
+        }
+
 
         p { font-size: 16px; color: #666; margin-bottom: 20px; text-align: center; font-weight: bold; }
 
@@ -211,7 +225,7 @@
 
 <div id="game-container">
     <div id="header">
-        <div id="score">Score: 0</div>
+        <div id="score">Score: 0 (0問)</div>
         <div id="life">HP: ❤️❤️❤️❤️❤️</div>
     </div>
 
@@ -286,7 +300,7 @@ let spawnTimer = 0;
 let notes = [];
 let particles = [];
 let questionCount = 0;
-let correctCount = 0; // ★ 追加：正解数カウント
+let correctCount = 0; 
 const POP_COLORS = ['#FF9A9E', '#FECFEF', '#a1c4fd', '#c2e9fb', '#fbc2eb', '#a6c1ee', '#fdcbf1', '#e6dee9'];
 
 /* -----------------------
@@ -299,14 +313,11 @@ function saveScore(newScore) {
         scores = JSON.parse(localStorage.getItem(KEY)) || [];
     } catch(e) {}
     
-    // スコアと一緒に正解数も保存する
     scores.push({ score: newScore, count: correctCount });
     
-    // スコアでソート (正解数も一緒に持ち運ぶため、オブジェクト形式で保存・処理)
     scores.sort((a, b) => b.score - a.score);
     scores = scores.slice(0, 5);
     
-    // 保存時にはオブジェクトを文字列化
     localStorage.setItem(KEY, JSON.stringify(scores));
     updateRankingDisplay();
 }
@@ -326,7 +337,6 @@ function updateRankingDisplay() {
         scores.forEach((s, i) => {
             const div = document.createElement('div');
             div.className = `rank-item rank-${i+1}`;
-            // ★ 修正＆追加：順位表記を「位」にし、スコアと一緒に正解数も表示
             div.textContent = `${i+1}位: ${s.score}点 (${s.count}問)`;
             listEl.appendChild(div);
         });
@@ -596,7 +606,7 @@ function startGame(difficulty) {
     hp = 5;
     combo = 0;
     questionCount = 0;
-    correctCount = 0; // ★ 修正：正解数をリセット
+    correctCount = 0; 
     notes = [];
     particles = [];
     inputBuffer = "";
@@ -633,19 +643,21 @@ function startGame(difficulty) {
 function gameOver() {
     gameActive = false;
     GameAudio.stopBGM();
-    // ★ 修正：saveScore関数内で正解数も保存
     saveScore(score); 
 
     document.getElementById('menu-overlay').classList.remove('hidden');
     document.getElementById('title-screen').classList.remove('hidden');
     document.getElementById('difficulty-buttons').classList.add('hidden');
-    // ★ 修正：ゲームオーバー画面にも正解数を表示
-    document.querySelector('#title-screen h1').textContent = `Game Over! Score: ${score} (${correctCount}問)`;
+    
+    // ★ 修正箇所：ゲームオーバー画面のH1の内容を2行表示に対応
+    document.querySelector('#title-screen h1').innerHTML = `
+        Game Over! Score<br>
+        <span id="game-over-score">${score}点 (${correctCount}問)</span>
+    `;
     document.querySelector('#title-screen p').textContent = "もういちど あそぶ？";
 }
 
 function updateUI() {
-    // ★ 修正：ヘッダーのスコア表示に正解数を追加
     document.getElementById('score').textContent = `Score: ${score} (${correctCount}問)`;
     
     let hearts = "";
@@ -689,7 +701,7 @@ function checkAnswer() {
 
         score += 100 + (combo * 10);
         combo++;
-        correctCount++; // ★ 追加：正解数カウントアップ
+        correctCount++; 
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
