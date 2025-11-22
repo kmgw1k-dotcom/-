@@ -10,7 +10,7 @@
             padding: 0;
             background-color: #1a1a2e;
             color: #fff;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Arial', sans-serif';
             overflow: hidden;
             touch-action: manipulation;
         }
@@ -181,489 +181,453 @@
         <div class="key key-enter" data-val="OK">決定</div>
     </div>
 
-   <div id="menu-overlay">
-    <h1>🎵 リズム計算カード</h1>
-    <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
+    <!-- ▼ メニュー -->
+    <div id="menu-overlay">
+        <h1>🎵 リズム計算カード</h1>
+        <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
 
-    <!-- ▼ 計算モード選択 -->
-    <div style="margin-bottom:12px; text-align:center;">
-        <button class="btn btn-mode" type="button" onclick="selectMode('add')">たしざん (+)</button>
-        <button class="btn btn-mode" type="button" onclick="selectMode('sub')">ひきざん (-)</button>
-        <button class="btn btn-mode" type="button" onclick="selectMode('kuku')">九九 (×)</button>
-    </div>
+        <!-- ▼ 計算モード -->
+        <div style="margin-bottom:12px; text-align:center;">
+            <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
+            <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
+            <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
+        </div>
 
-    <!-- ▼ 難易度選択 -->
-    <div id="difficulty-buttons" class="hidden" style="text-align:center;">
-        <p style="margin: 8px 0;">むずかしさをえらんでね</p>
-        <button class="btn" type="button" onclick="startGame(selectedMode, 'easy')">かんたん</button>
-        <button class="btn" type="button" onclick="startGame(selectedMode, 'normal')">ふつう</button>
-        <button class="btn" type="button" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
+        <!-- ▼ 難易度 -->
+        <div id="difficulty-buttons" class="hidden">
+            <p style="margin: 8px 0;">むずかしさをえらんでね</p>
+            <button class="btn" onclick="startGame(selectedMode, 'easy')">かんたん</button>
+            <button class="btn" onclick="startGame(selectedMode, 'normal')">ふつう</button>
+            <button class="btn" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
+        </div>
     </div>
 </div>
 
 <script>
-    // --- オーディオシステム (BGM & SE) ---
-    const Audio = (function() {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        let isMuted = false;
-        let bgmTimer = null;
-        let currentNote = 0;
-        let tempo = 120; // BPM
-
-        // 音階周波数 (簡易)
-        const notes = {
-            'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
-            'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'G5': 783.99
-        };
-
-        // BGMパターン (8ビートの簡易シーケンス)
-        // note: 音階, len: 長さ(16分音符単位)
-        const melodyLine = [
-            {n:'C5',l:2}, {n:'G4',l:2}, {n:'E4',l:2}, {n:'A4',l:2}, 
-            {n:'G4',l:2}, {n:'E4',l:2}, {n:'C4',l:4},
-            {n:'D4',l:2}, {n:'E4',l:2}, {n:'F4',l:2}, {n:'D4',l:2},
-            {n:'G4',l:4}, {n:'G4',l:4}
-        ];
-        
-        const bassLine = [
-            {n:'C4',l:4}, {n:'F4',l:4}, {n:'G4',l:4}, {n:'C4',l:4}
-        ];
-
-        function playTone(freq, type, duration, vol) {
-            if (ctx.state === 'suspended') ctx.resume();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = type;
-            osc.frequency.value = freq;
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            gain.gain.setValueAtTime(vol, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-            osc.stop(ctx.currentTime + duration);
-        }
-
-        function playDrum() {
-            // 簡易的なハイハット/ノイズ
-            const bufferSize = ctx.sampleRate * 0.1; // 0.1秒
-            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-            }
-            const noise = ctx.createBufferSource();
-            noise.buffer = buffer;
-            const gain = ctx.createGain();
-            gain.gain.value = 0.05;
-            noise.connect(gain);
-            gain.connect(ctx.destination);
-            noise.start();
-        }
-
-        // シーケンサー
-        function schedule() {
-            const beatLen = 60 / tempo; // 1拍の秒数
-            const sixteenth = beatLen / 4; // 16分音符
-
-            // メロディ再生
-            let mIdx = currentNote % melodyLine.length;
-            // 簡易的にタイミングを合わせるため、ここでは厳密なスケジューリングより
-            // setIntervalでループさせる簡易実装にします（スマホ負荷軽減のため）
-            // 実際には小節ごとに音を出します
-        }
-        
-        // 簡易シーケンサー（setIntervalベース）
-        let tick = 0;
-        let nextNoteTime = 0;
-
-        function startBGM() {
-            if (bgmTimer) clearInterval(bgmTimer);
-            tick = 0;
-            // 16分音符ごとのループを作る
-            const interval = (60 / tempo) / 4 * 1000;
-            
-            bgmTimer = setInterval(() => {
-                if (ctx.state === 'suspended') ctx.resume();
-
-                // メロディ（配列をループ）
-                const mStep = tick % 32; 
-                // 32ステップ（2小節分）の簡易譜面
-                // ド・ミ・ソ・ラ (8分音符刻みでそれっぽく)
-                if (tick % 4 === 0) { // 4分音符ごと（ベース・ドラム）
-                     playTone(220, 'triangle', 0.2, 0.1); // ベース
-                     playDrum();
-                }
-                if (tick % 2 === 0) { // 8分音符裏打ち
-                    playDrum();
-                }
-                
-                // メロディ (キラキラ感のあるサイン波)
-                const melody = ['C5','','E5','','G5','','C6','', 'A5','','G5','','E5','','C5',''];
-                const note = melody[tick % 16];
-                if (note && notes[note]) {
-                     playTone(notes[note], 'sine', 0.3, 0.1);
-                } else if (!note && tick % 16 === 7) {
-                     // アクセント
-                     playTone(notes['G4'], 'square', 0.1, 0.05);
-                }
-
-                tick++;
-            }, (60 / tempo) / 4 * 1000);
-        }
-
-        function stopBGM() {
-            if (bgmTimer) clearInterval(bgmTimer);
-        }
-
-        function setTempo(newTempo) {
-            if (Math.abs(tempo - newTempo) > 5) { // 変化が大きければ再起動
-                tempo = newTempo;
-                startBGM(); // タイマー間隔を更新
-            }
-        }
-
-        function playSE(type) {
-            if (ctx.state === 'suspended') ctx.resume();
-            const now = ctx.currentTime;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            if (type === 'correct') {
-                osc.type = 'sine'; // キラリン
-                osc.frequency.setValueAtTime(880, now);
-                osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now);
-                osc.stop(now + 0.3);
-            } else if (type === 'wrong') {
-                osc.type = 'sawtooth'; // ブブー
-                osc.frequency.setValueAtTime(150, now);
-                osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-                osc.start(now);
-                osc.stop(now + 0.3);
-            } else if (type === 'tap') {
-                osc.type = 'triangle'; // ポッ
-                osc.frequency.setValueAtTime(400, now);
-                gain.gain.setValueAtTime(0.1, now);
-                gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
-                osc.start(now);
-                osc.stop(now + 0.05);
-            }
-        }
-
-        return {
-            startBGM, stopBGM, setTempo, playSE, 
-            resume: () => { if (ctx.state === 'suspended') ctx.resume(); }
-        };
-    })();
-
-    // --- ゲームロジック ---
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    
-    let lastTime = 0;
-    let spawnTimer = 0;
-    let spawnInterval = 2500;
-    let notes = [];
-    let particles = [];
-    let score = 0;
-    let hp = 5;
-    let combo = 0;
-    let mode = 'add';
-    let inputBuffer = "";
-    let gameActive = false;
-    let speed = 100;
-    let baseBPM = 110;
-
-    function resize() {
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    class Note {
-        constructor(mode) {
-            this.x = Math.random() * (canvas.width - 100) + 50;
-            this.y = -50;
-            this.r = 30;
-            this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
-            
-            if (mode === 'add') {
-                const a = Math.floor(Math.random() * 10) + 1;
-                const b = Math.floor(Math.random() * 10) + 1;
-                this.text = `${a} + ${b}`;
-                this.answer = a + b;
-            } else if (mode === 'sub') {
-                const a = Math.floor(Math.random() * 10) + 5;
-                const b = Math.floor(Math.random() * (a - 1)) + 1;
-                this.text = `${a} - ${b}`;
-                this.answer = a - b;
-            } else if (mode === 'kuku') {
-                const a = Math.floor(Math.random() * 9) + 1;
-                const b = Math.floor(Math.random() * 9) + 1;
-                this.text = `${a} × ${b}`;
-                this.answer = a * b;
-            }
-        }
-
-        update(dt) {
-            this.y += speed * dt;
-        }
-
-        draw(ctx) {
-            // 光るエフェクト
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-            ctx.fillStyle = '#0f3460';
-            ctx.fill();
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = this.color;
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.text, this.x, this.y);
-        }
-    }
-
-    class Particle {
-        constructor(x, y, color) {
-            this.x = x;
-            this.y = y;
-            this.vx = (Math.random() - 0.5) * 15;
-            this.vy = (Math.random() - 0.5) * 15;
-            this.life = 1.0;
-            this.color = color;
-        }
-        update(dt) {
-            this.x += this.vx;
-            this.y += this.vy;
-            this.life -= dt * 3;
-        }
-        draw(ctx) {
-            ctx.globalAlpha = Math.max(0, this.life);
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
-        }
-    }
-
+/* -----------------------
+   グローバル変数
+------------------------ */
 let selectedMode = "add";
+let difficultyLevel = "easy";
 
+/* -----------------------
+   モード選択 → 難易度ボタン表示
+------------------------ */
 function selectMode(mode) {
     selectedMode = mode;
     document.getElementById("difficulty-buttons").classList.remove("hidden");
 }
 
-    function startGame(selectedMode) {
-        Audio.resume(); // AudioContext起動
-        mode = selectedMode;
-        score = 0;
-        hp = 5;
-        combo = 0;
-        notes = [];
-        particles = [];
-        inputBuffer = "";
-        gameActive = true;
+/* -----------------------
+   Audio（そのまま）
+------------------------ */
+const Audio = (function() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let bgmTimer = null;
+    let tempo = 120;
 
-             if (difficulty === "easy") {
-            speed = canvas.height / 10;
-            spawnInterval = 3500;
-            baseBPM = 105;
-        } else if (difficulty === "normal") {
-            speed = canvas.height / 8;
-            spawnInterval = 2800;
-            baseBPM = 110;
-        } else { // "hard"
-            speed = canvas.height / 6;
-            spawnInterval = 2300;
-            baseBPM = 115;
-        }
+    const notes = {
+        'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00,
+        'A4': 440.00, 'B4': 493.88, 'C5': 523.25, 'D5': 587.33, 'E5': 659.25,
+        'G5': 783.99
+    };
 
-        Audio.setTempo(baseBPM);
-        Audio.startBGM();
+    function playTone(freq, type, duration, vol) {
+        if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.stop(ctx.currentTime + duration);
+    }
 
-        document.getElementById('menu-overlay').classList.add('hidden');
-        updateUI();
+    function playDrum() {
+        const bufferSize = ctx.sampleRate * 0.1;
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const gain = ctx.createGain();
+        gain.gain.value = 0.05;
+        noise.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start();
+    }
+
+    let tick = 0;
+
+    function startBGM() {
+        if (bgmTimer) clearInterval(bgmTimer);
+        tick = 0;
         
-        lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
-    }
+        bgmTimer = setInterval(() => {
+            if (ctx.state === 'suspended') ctx.resume();
 
-    function gameOver() {
-        gameActive = false;
-        Audio.stopBGM();
-        document.getElementById('menu-overlay').classList.remove('hidden');
-        document.querySelector('#menu-overlay h1').textContent = `Game Over! Score: ${score}`;
-        document.querySelector('#menu-overlay p').textContent = "もういちど チャレンジ！";
-    }
-
-    function updateUI() {
-        document.getElementById('score').textContent = `Score: ${score}`;
-        let hearts = "";
-        for(let i=0; i<hp; i++) hearts += "❤️";
-        document.getElementById('life').textContent = `HP: ${hearts}`;
-        document.getElementById('input-buffer').textContent = inputBuffer;
-        
-        const comboEl = document.getElementById('combo-display');
-        if (combo > 1) {
-            comboEl.textContent = `${combo} COMBO!`;
-            comboEl.style.opacity = 1;
-            comboEl.style.transform = "translateX(-50%) scale(1.3)";
-            setTimeout(() => {
-                 comboEl.style.transform = "translateX(-50%) scale(1)";
-            }, 100);
-        } else {
-            comboEl.textContent = "";
-        }
-    }
-
-    function checkAnswer() {
-        const val = parseInt(inputBuffer);
-        if (isNaN(val)) return;
-
-        let hitIndex = -1;
-        let lowestY = -1000;
-
-        for (let i = 0; i < notes.length; i++) {
-            if (notes[i].answer === val) {
-                // 画面内(上端より少し下)にあるものだけ対象
-                if (notes[i].y > 0 && notes[i].y > lowestY) {
-                    lowestY = notes[i].y;
-                    hitIndex = i;
-                }
+            if (tick % 4 === 0) {
+                playTone(220, 'triangle', 0.2, 0.1);
+                playDrum();
             }
-        }
+            if (tick % 2 === 0) playDrum();
 
-        if (hitIndex !== -1) {
-            Audio.playSE('correct');
-            const note = notes[hitIndex];
-            for(let p=0; p<15; p++) particles.push(new Particle(note.x, note.y, note.color));
-            
-            score += 100 + (combo * 10);
-            combo++;
-            notes.splice(hitIndex, 1);
-            inputBuffer = "";
-            
-            // 難易度調整 & BGM連動
-            if (score % 500 === 0) {
-                speed += 15;
-                spawnInterval = Math.max(800, spawnInterval - 150);
-                // BGMテンポアップ（最大160BPMまで）
-                let newBPM = Math.min(160, baseBPM + Math.floor(score/500)*5);
-                Audio.setTempo(newBPM);
+            const melody = ['C5','','E5','','G5','','C6','', 'A5','','G5','','E5','','C5',''];
+            const note = melody[tick % 16];
+            if (note && notes[note]) {
+                playTone(notes[note], 'sine', 0.3, 0.1);
             }
 
-        } else {
-            // 間違いの時はここでは何もしない（決定ボタンで判定）
-        }
-        updateUI();
+            tick++;
+        }, (60 / tempo) / 4 * 1000);
     }
 
-    document.querySelectorAll('.key').forEach(key => {
-        const handleInput = (e) => {
-            e.preventDefault();
-            if (!gameActive) return;
-            
-            const val = key.getAttribute('data-val');
-            Audio.playSE('tap');
+    function stopBGM() {
+        if (bgmTimer) clearInterval(bgmTimer);
+    }
 
-            if (val === 'DEL') {
-                inputBuffer = "";
-            } else if (val === 'OK') {
-                const answerVal = parseInt(inputBuffer);
-                let hit = false;
-                for (let n of notes) {
-                    if (n.answer === answerVal && n.y > 0) hit = true;
-                }
-                
-                if (hit) {
-                    checkAnswer();
-                } else {
-                    if (inputBuffer !== "") {
-                        Audio.playSE('wrong');
-                        combo = 0;
-                        inputBuffer = "";
-                        hp--;
-                        // ミスしたらBGMテンポを少し戻す
-                        let currentBPM = baseBPM + Math.floor(score/500)*5;
-                        Audio.setTempo(Math.max(110, currentBPM - 5));
-                        
-                        if (hp <= 0) gameOver();
-                    }
-                }
-            } else {
-                if (inputBuffer.length < 3) {
-                    inputBuffer += val;
-                }
-            }
-            updateUI();
-        };
+    function setTempo(newTempo) {
+        if (Math.abs(tempo - newTempo) > 5) {
+            tempo = newTempo;
+            startBGM();
+        }
+    }
 
-        key.addEventListener('touchstart', handleInput);
-        key.addEventListener('mousedown', handleInput);
-    });
+    function playSE(type) {
+        if (ctx.state === 'suspended') ctx.resume();
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
 
-    function gameLoop(timestamp) {
-        if (!gameActive) return;
-        const dt = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
+        if (type === 'correct') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        } 
+        else if (type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+        }
+        else if (type === 'tap') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, now);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+        }
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        osc.start(now);
+        osc.stop(now + 0.3);
+    }
+
+    return {
+        startBGM, stopBGM, setTempo, playSE,
+        resume: () => { if (ctx.state === 'suspended') ctx.resume(); }
+    };
+})();
+
+/* -----------------------
+   ゲームロジック
+------------------------ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let lastTime = 0;
+let spawnTimer = 0;
+let spawnInterval = 2500;
+let notes = [];
+let particles = [];
+let score = 0;
+let hp = 5;
+let combo = 0;
+let mode = 'add';
+let inputBuffer = "";
+let gameActive = false;
+let speed = 100;
+let baseBPM = 110;
+
+function resize() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+class Note {
+    constructor(mode) {
+        this.x = Math.random() * (canvas.width - 100) + 50;
+        this.y = -50;
+        this.r = 30;
+        this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
         
-        // 判定ライン
+        if (mode === 'add') {
+            const a = Math.floor(Math.random() * 10) + 1;
+            const b = Math.floor(Math.random() * 10) + 1;
+            this.text = `${a} + ${b}`;
+            this.answer = a + b;
+        } else if (mode === 'sub') {
+            const a = Math.floor(Math.random() * 10) + 5;
+            const b = Math.floor(Math.random() * (a - 1)) + 1;
+            this.text = `${a} - ${b}`;
+            this.answer = a - b;
+        } else if (mode === 'kuku') {
+            const a = Math.floor(Math.random() * 9) + 1;
+            const b = Math.floor(Math.random() * 9) + 1;
+            this.text = `${a} × ${b}`;
+            this.answer = a * b;
+        }
+    }
+
+    update(dt) {
+        this.y += speed * dt;
+    }
+
+    draw(ctx) {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = this.color;
         ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 50);
-        ctx.lineTo(canvas.width, canvas.height - 50);
-        ctx.strokeStyle = 'rgba(76, 201, 240, 0.5)';
-        ctx.lineWidth = 2;
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = '#0f3460';
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = this.color;
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
-        spawnTimer += dt * 1000;
-        if (spawnTimer > spawnInterval) {
-            notes.push(new Note(mode));
-            spawnTimer = 0;
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.text, this.x, this.y);
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 15;
+        this.vy = (Math.random() - 0.5) * 15;
+        this.life = 1.0;
+        this.color = color;
+    }
+    update(dt) {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= dt * 3;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+/* -----------------------
+   startGame（完全修正版）
+------------------------ */
+function startGame(selectedMode, difficulty = "easy") {
+
+    difficultyLevel = difficulty;
+
+    Audio.resume();
+    mode = selectedMode;
+
+    score = 0;
+    hp = 5;
+    combo = 0;
+    notes = [];
+    particles = [];
+    inputBuffer = "";
+    gameActive = true;
+
+    /* ▼ 難易度セット */
+    if (difficulty === "easy") {
+        speed = canvas.height / 10;
+        spawnInterval = 3500;
+        baseBPM = 105;
+    } else if (difficulty === "normal") {
+        speed = canvas.height / 8;
+        spawnInterval = 2800;
+        baseBPM = 110;
+    } else {
+        speed = canvas.height / 6;
+        spawnInterval = 2300;
+        baseBPM = 115;
+    }
+
+    Audio.setTempo(baseBPM);
+    Audio.startBGM();
+
+    document.getElementById('menu-overlay').classList.add('hidden');
+    updateUI();
+    
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+    gameActive = false;
+    Audio.stopBGM();
+    document.getElementById('menu-overlay').classList.remove('hidden');
+    document.querySelector('#menu-overlay h1').textContent = `Game Over! Score: ${score}`;
+    document.querySelector('#menu-overlay p').textContent = "もう一度チャレンジ！";
+}
+
+function updateUI() {
+    document.getElementById('score').textContent = `Score: ${score}`;
+    let hearts = "";
+    for(let i=0; i<hp; i++) hearts += "❤️";
+    document.getElementById('life').textContent = `HP: ${hearts}`;
+    document.getElementById('input-buffer').textContent = inputBuffer;
+    
+    const comboEl = document.getElementById('combo-display');
+    if (combo > 1) {
+        comboEl.textContent = `${combo} COMBO!`;
+        comboEl.style.opacity = 1;
+        comboEl.style.transform = "translateX(-50%) scale(1.3)";
+        setTimeout(() => {
+             comboEl.style.transform = "translateX(-50%) scale(1)";
+        }, 100);
+    } else {
+        comboEl.textContent = "";
+    }
+}
+
+function checkAnswer() {
+    const val = parseInt(inputBuffer);
+    if (isNaN(val)) return;
+
+    let hitIndex = -1;
+    let lowestY = -1000;
+
+    for (let i = 0; i < notes.length; i++) {
+        if (notes[i].answer === val && notes[i].y > 0 && notes[i].y > lowestY) {
+            lowestY = notes[i].y;
+            hitIndex = i;
         }
+    }
 
-        for (let i = notes.length - 1; i >= 0; i--) {
-            let note = notes[i];
-            note.update(dt);
-            note.draw(ctx);
+    if (hitIndex !== -1) {
+        Audio.playSE('correct');
+        const note = notes[hitIndex];
+        for(let p=0; p<15; p++) particles.push(new Particle(note.x, note.y, note.color));
 
-            if (note.y > canvas.height) {
-                notes.splice(i, 1);
-                combo = 0;
-                hp--;
-                Audio.playSE('wrong');
-                updateUI();
-                if (hp <= 0) {
-                    gameOver();
-                    return;
+        score += 100 + (combo * 10);
+        combo++;
+
+        notes.splice(hitIndex, 1);
+        inputBuffer = "";
+
+        if (score % 500 === 0) {
+            speed += 15;
+            spawnInterval = Math.max(800, spawnInterval - 150);
+            let newBPM = Math.min(160, baseBPM + Math.floor(score/500)*5);
+            Audio.setTempo(newBPM);
+        }
+    }
+
+    updateUI();
+}
+
+document.querySelectorAll('.key').forEach(key => {
+    const handleInput = (e) => {
+        e.preventDefault();
+        if (!gameActive) return;
+
+        const val = key.getAttribute('data-val');
+        Audio.playSE('tap');
+
+        if (val === 'DEL') {
+            inputBuffer = "";
+        } 
+        else if (val === 'OK') {
+            const answerVal = parseInt(inputBuffer);
+            let hit = notes.some(n => n.answer === answerVal && n.y > 0);
+
+            if (hit) {
+                checkAnswer();
+            } else {
+                if (inputBuffer !== "") {
+                    Audio.playSE('wrong');
+                    combo = 0;
+                    inputBuffer = "";
+                    hp--;
+                    let currentBPM = baseBPM + Math.floor(score/500)*5;
+                    Audio.setTempo(Math.max(110, currentBPM - 5));
+                    if (hp <= 0) gameOver();
                 }
             }
+        } 
+        else {
+            if (inputBuffer.length < 3) inputBuffer += val;
         }
 
-        for (let i = particles.length - 1; i >= 0; i--) {
-            particles[i].update(dt);
-            particles[i].draw(ctx);
-            if (particles[i].life <= 0) particles.splice(i, 1);
-        }
+        updateUI();
+    };
 
-        requestAnimationFrame(gameLoop);
+    key.addEventListener('touchstart', handleInput);
+    key.addEventListener('mousedown', handleInput);
+});
+
+function gameLoop(timestamp) {
+    if (!gameActive) return;
+    const dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height - 50);
+    ctx.lineTo(canvas.width, canvas.height - 50);
+    ctx.strokeStyle = 'rgba(76, 201, 240, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    spawnTimer += dt * 1000;
+    if (spawnTimer > spawnInterval) {
+        notes.push(new Note(mode));
+        spawnTimer = 0;
     }
+
+    for (let i = notes.length - 1; i >= 0; i--) {
+        let note = notes[i];
+        note.update(dt);
+        note.draw(ctx);
+
+        if (note.y > canvas.height) {
+            notes.splice(i, 1);
+            combo = 0;
+            hp--;
+            Audio.playSE('wrong');
+            updateUI();
+            if (hp <= 0) {
+                gameOver();
+                return;
+            }
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update(dt);
+        particles[i].draw(ctx);
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
 </script>
 </body>
 </html>
