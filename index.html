@@ -123,6 +123,7 @@
             justify-content: center;
             align-items: center;
             z-index: 100;
+            overflow-y: auto;
         }
 
         h1 {
@@ -183,6 +184,24 @@
             pointer-events: none;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
+
+        #ranking-container {
+            margin-top: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid #ffca28;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .rank-item {
+            font-size: 18px;
+            margin: 5px 0;
+            color: #555;
+            border-bottom: 1px dashed #ccc;
+        }
+        .rank-1 { color: #ff6f61; font-weight: bold; font-size: 22px; }
     </style>
 </head>
 <body>
@@ -222,6 +241,10 @@
                 <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
                 <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
             </div>
+            <div id="ranking-container">
+                <div>🏆 ベストスコア 🏆</div>
+                <div id="ranking-list"></div>
+            </div>
         </div>
 
         <div id="difficulty-buttons" class="hidden" style="display:flex; flex-direction:column; align-items:center;">
@@ -236,18 +259,16 @@
 </div>
 
 <script>
-// エラーキャッチ（万が一動かない時にアラートを出す）
 window.onerror = function(msg, url, line) {
     alert("エラーが発生しました: " + msg + "\n行: " + line);
 };
 
 /* -----------------------
-   グローバル変数（設定）
+   グローバル変数
 ------------------------ */
 let selectedMode = "add";
-let difficultyLevel = 'normal'; // 初期値
+let difficultyLevel = 'normal';
 
-// ゲーム状態変数
 let score = 0;
 let hp = 5;
 let combo = 0;
@@ -261,16 +282,57 @@ let lastTime = 0;
 let spawnTimer = 0;
 let notes = [];
 let particles = [];
+let questionCount = 0; // 出題数カウント用
 const POP_COLORS = ['#FF9A9E', '#FECFEF', '#a1c4fd', '#c2e9fb', '#fbc2eb', '#a6c1ee', '#fdcbf1', '#e6dee9'];
+
+/* -----------------------
+   ランキング管理
+------------------------ */
+function saveScore(newScore) {
+    const KEY = 'popCalcScores_' + selectedMode;
+    let scores = [];
+    try {
+        scores = JSON.parse(localStorage.getItem(KEY)) || [];
+    } catch(e) {}
+    
+    scores.push(newScore);
+    scores.sort((a, b) => b - a);
+    scores = scores.slice(0, 5);
+    
+    localStorage.setItem(KEY, JSON.stringify(scores));
+    updateRankingDisplay();
+}
+
+function updateRankingDisplay() {
+    const KEY = 'popCalcScores_' + selectedMode;
+    let scores = [];
+    try {
+        scores = JSON.parse(localStorage.getItem(KEY)) || [];
+    } catch(e) {}
+
+    const listEl = document.getElementById('ranking-list');
+    listEl.innerHTML = "";
+    if (scores.length === 0) {
+        listEl.innerHTML = "<div style='color:#999; font-size:14px;'>まだきろくがないよ</div>";
+    } else {
+        scores.forEach((s, i) => {
+            const div = document.createElement('div');
+            div.className = `rank-item rank-${i+1}`;
+            div.textContent = `${i+1}い: ${s}点`;
+            listEl.appendChild(div);
+        });
+    }
+}
 
 function selectMode(modeName) {
     selectedMode = modeName;
+    updateRankingDisplay();
     document.getElementById("title-screen").classList.add("hidden");
     document.getElementById("difficulty-buttons").classList.remove("hidden");
 }
 
 /* -----------------------
-   GameAudio (BGM & SE)
+   GameAudio
 ------------------------ */
 const GameAudio = (function() {
     let ctx = null;
@@ -295,9 +357,7 @@ const GameAudio = (function() {
         if (!ctx) {
             try {
                 ctx = new (window.AudioContext || window.webkitAudioContext)();
-            } catch(e) {
-                console.error("Audio init failed", e);
-            }
+            } catch(e) { console.error(e); }
         }
     }
 
@@ -338,25 +398,18 @@ const GameAudio = (function() {
         init();
         if (bgmTimer) clearInterval(bgmTimer);
         let tick = 0;
-        
         bgmTimer = setInterval(() => {
             if (ctx && ctx.state === 'suspended') ctx.resume();
-            
             const song = songs[currentSongIndex];
-            
-            // リズム
             if (tick % 4 === 0) {
                 playTone(220, song.bass, 0.15, 0.1); 
                 playDrum();
             }
             if (tick % 2 === 0) playDrum();
-
-            // メロディ
             const noteName = song.melody[tick % 16];
             if (noteName && notes[noteName]) {
                 playTone(notes[noteName], song.tone, 0.2, 0.1); 
             }
-
             tick++;
         }, (60 / tempo) / 4 * 1000);
     }
@@ -368,7 +421,7 @@ const GameAudio = (function() {
     function setTempo(newTempo) {
         if (Math.abs(tempo - newTempo) > 2) {
             tempo = newTempo;
-            startBGM(); // Restart with new tempo
+            startBGM(); 
         }
     }
 
@@ -403,10 +456,7 @@ const GameAudio = (function() {
         osc.stop(now + 0.3);
     }
 
-    return {
-        pickRandomBGM, startBGM, stopBGM, setTempo, playSE,
-        resume: () => { if (ctx && ctx.state === 'suspended') ctx.resume(); }
-    };
+    return { pickRandomBGM, startBGM, stopBGM, setTempo, playSE, resume: () => { if (ctx && ctx.state === 'suspended') ctx.resume(); } };
 })();
 
 /* -----------------------
@@ -429,19 +479,60 @@ class Note {
         this.r = 35; 
         this.color = POP_COLORS[Math.floor(Math.random() * POP_COLORS.length)];
         
+        // ▼▼▼ 出題数に応じた2桁確率の調整 ▼▼▼
+        questionCount++; // 何問目かカウントアップ
+        
+        let useTwoDigit = false;
+        
+        if (questionCount <= 4) {
+            // 1~4問目: 必ず1桁 (0%)
+            useTwoDigit = false;
+        } else if (questionCount <= 10) {
+            // 5~10問目: 約35%の確率で2桁
+            if (Math.random() < 0.35) useTwoDigit = true;
+        } else if (questionCount <= 20) {
+            // 11~20問目: 約40%の確率で2桁
+            if (Math.random() < 0.4) useTwoDigit = true;
+        } else {
+            // 21問目以降: 50%以上の確率で2桁
+            if (Math.random() < 0.5) useTwoDigit = true;
+        }
+
+        // 難易度別の桁数設定
+        let minNum = 1;
+        let maxNum = 9;
+
+        if (useTwoDigit) {
+            // 2桁モードが当選した場合
+            minNum = 10;
+            maxNum = 20; // 基本は10~20
+            
+            // 難しい・おにモードならもっと大きな数も出す
+            if (difficultyLevel === 'hard') maxNum = 50;
+            if (difficultyLevel === 'oni') maxNum = 99;
+        } else {
+            // 1桁モード
+            maxNum = 9;
+        }
+
         if (mode === 'add') {
-            const a = Math.floor(Math.random() * 10) + 1;
-            const b = Math.floor(Math.random() * 10) + 1;
+            const a = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+            const b = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
             this.text = `${a} + ${b}`;
             this.answer = a + b;
         } else if (mode === 'sub') {
-            const a = Math.floor(Math.random() * 10) + 5;
+            const a = Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum + 5;
             const b = Math.floor(Math.random() * (a - 1)) + 1;
             this.text = `${a} - ${b}`;
             this.answer = a - b;
         } else if (mode === 'kuku') {
-            const a = Math.floor(Math.random() * 9) + 1;
-            const b = Math.floor(Math.random() * 9) + 1;
+            // 九九は「全てモード」でも基本は1桁×1桁（学校準拠）
+            // おにモードだけ11〜19のインド式を混ぜる
+            let kukuMax = 9;
+            if (useTwoDigit && difficultyLevel === 'oni') kukuMax = 19;
+            
+            const a = Math.floor(Math.random() * kukuMax) + 1;
+            const b = Math.floor(Math.random() * 9) + 1; // 片方は1桁にしておく
             this.text = `${a} × ${b}`;
             this.answer = a * b;
         }
@@ -498,21 +589,19 @@ function startGame(difficulty) {
     try {
         GameAudio.resume();
         GameAudio.pickRandomBGM(); 
-    } catch(e) {
-        console.log("Audio failed to start", e);
-    }
+    } catch(e) {}
 
+    difficultyLevel = difficulty;
     mode = selectedMode;
     score = 0;
     hp = 5;
     combo = 0;
+    questionCount = 0; // 問題数リセット
     notes = [];
     particles = [];
     inputBuffer = "";
     gameActive = true;
-    difficultyLevel = difficulty;
 
-    // 難易度設定
     if (difficulty === "easy") {
         speed = canvas.height / 10;
         spawnInterval = 3500;
@@ -544,6 +633,8 @@ function startGame(difficulty) {
 function gameOver() {
     gameActive = false;
     GameAudio.stopBGM();
+    saveScore(score);
+
     document.getElementById('menu-overlay').classList.remove('hidden');
     document.getElementById('title-screen').classList.remove('hidden');
     document.getElementById('difficulty-buttons').classList.add('hidden');
@@ -597,14 +688,13 @@ function checkAnswer() {
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
-        // ★★★ スムーズ加速ロジック（修正版） ★★★
+        // スムーズ加速
         let speedIncrement = 5; 
         if(difficultyLevel === 'oni') speedIncrement = 10;
         speed += speedIncrement;
 
         spawnInterval = Math.max(500, spawnInterval - 15); 
 
-        // BPM上昇
         let bpmIncrease = Math.floor(score / 100); 
         let newBPM = Math.min(240, baseBPM + bpmIncrease);
         GameAudio.setTempo(newBPM);
@@ -692,6 +782,9 @@ function gameLoop(timestamp) {
     }
     requestAnimationFrame(gameLoop);
 }
+
+// 初期化（ランキング読み込み）
+updateRankingDisplay();
 </script>
 </body>
 </html>
