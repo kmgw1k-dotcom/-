@@ -572,9 +572,9 @@ function checkAnswer() {
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
-        if (score % 500 === 0) {
-            speed += 20;
-            spawnInterval = Math.max(600, spawnInterval - 100);
+        if (score % 300 === 0) {
+            speed += 100;
+            spawnInterval = Math.max(600, spawnInterval - 300);
             let newBPM = Math.min(220, baseBPM + Math.floor(score/500)*8);
             GameAudio.setTempo(newBPM);
         }
