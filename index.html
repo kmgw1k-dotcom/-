@@ -533,10 +533,10 @@ function checkAnswer() {
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
-        if (score % 500 === 0) {
-            speed += 15;
-            spawnInterval = Math.max(800, spawnInterval - 150);
-            let newBPM = Math.min(160, baseBPM + Math.floor(score/500)*5);
+        if (score % 300 === 0) {
+            speed += 20;
+            spawnInterval = Math.max(800, spawnInterval - 300);
+            let newBPM = Math.min(160, baseBPM + Math.floor(score/500)*10);
             Audio.setTempo(newBPM);
         }
     }
