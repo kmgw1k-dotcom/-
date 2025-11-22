@@ -248,25 +248,51 @@ function selectMode(mode) {
 }
 
 /* -----------------------
-   GameAudio (名前を変更しました)
+   GameAudio (楽器機能追加版)
 ------------------------ */
 const GameAudio = (function() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     let bgmTimer = null;
     let tempo = 120;
-    let currentMelodyIndex = 0;
+    let currentSongIndex = 0;
 
     const notes = {
         'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
         'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77, 'C6': 1046.50
     };
 
-    const melodies = [
-        ['C5','','E5','','G5','','C6','', 'A5','','G5','','E5','','C5',''],
-        ['C5','D5','E5','F5','G5','A5','B5','C6', 'G5','','E5','','C5','','',''],
-        ['C5','C5','G5','G5','A5','A5','G5','', 'F5','F5','E5','E5','D5','D5','C5',''],
-        ['C5','E5','G5','C6','E5','G5','C6','E6', 'D6','B5','G5','F5','D5','B4','G4',''],
-        ['A4','','C5','','E5','','A5','', 'G5','F5','E5','D5','C5','B4','A4','']
+    // 曲データ：メロディだけでなく、楽器の音色(tone)とベースの音色(bass)を定義
+    const songs = [
+        {
+            name: "Standard",
+            tone: "sine", // 丸い音
+            bass: "triangle",
+            melody: ['C5','','E5','','G5','','C6','', 'A5','','G5','','E5','','C5','']
+        },
+        {
+            name: "8-bit",
+            tone: "square", // ファミコン風
+            bass: "sawtooth",
+            melody: ['C5','D5','E5','F5','G5','A5','B5','C6', 'G5','','E5','','C5','','','']
+        },
+        {
+            name: "Crystal",
+            tone: "triangle", // キラキラ風
+            bass: "sine",
+            melody: ['C5','C5','G5','G5','A5','A5','G5','', 'F5','F5','E5','E5','D5','D5','C5','']
+        },
+        {
+            name: "Energetic",
+            tone: "sawtooth", // 鋭い音
+            bass: "square",
+            melody: ['C5','E5','G5','C6','E5','G5','C6','E6', 'D6','B5','G5','F5','D5','B4','G4','']
+        },
+        {
+            name: "Minor",
+            tone: "sine",
+            bass: "triangle",
+            melody: ['A4','','C5','','E5','','A5','', 'G5','F5','E5','D5','C5','B4','A4','']
+        }
     ];
 
     function playTone(freq, type, duration, vol) {
@@ -300,370 +326,9 @@ const GameAudio = (function() {
     let tick = 0;
 
     function pickRandomBGM() {
-        currentMelodyIndex = Math.floor(Math.random() * melodies.length);
+        currentSongIndex = Math.floor(Math.random() * songs.length);
     }
 
     function startBGM() {
         if (bgmTimer) clearInterval(bgmTimer);
         tick = 0;
-        
-        bgmTimer = setInterval(() => {
-            if (ctx.state === 'suspended') ctx.resume();
-
-            if (tick % 4 === 0) {
-                playTone(220, 'triangle', 0.15, 0.1); 
-                playDrum();
-            }
-            if (tick % 2 === 0) playDrum();
-
-            const currentMelody = melodies[currentMelodyIndex];
-            const noteName = currentMelody[tick % 16];
-            
-            if (noteName && notes[noteName]) {
-                playTone(notes[noteName], 'sine', 0.2, 0.1); 
-            }
-
-            tick++;
-        }, (60 / tempo) / 4 * 1000);
-    }
-
-    function stopBGM() {
-        if (bgmTimer) clearInterval(bgmTimer);
-    }
-
-    function setTempo(newTempo) {
-        if (Math.abs(tempo - newTempo) > 5) {
-            tempo = newTempo;
-            startBGM(); 
-        }
-    }
-
-    function playSE(type) {
-        if (ctx.state === 'suspended') ctx.resume();
-        const now = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        if (type === 'correct') {
-            osc.type = 'triangle'; 
-            osc.frequency.setValueAtTime(1200, now);
-            osc.frequency.linearRampToValueAtTime(1800, now + 0.1);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-        } else if (type === 'wrong') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(150, now);
-            osc.frequency.linearRampToValueAtTime(50, now + 0.3);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
-        } else if (type === 'tap') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(600, now);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
-        }
-        osc.start(now);
-        osc.stop(now + 0.3);
-    }
-
-    return {
-        pickRandomBGM, startBGM, stopBGM, setTempo, playSE,
-        resume: () => { if (ctx.state === 'suspended') ctx.resume(); }
-    };
-})();
-
-/* -----------------------
-   ゲームロジック
------------------------- */
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-let lastTime = 0;
-let spawnTimer = 0;
-let spawnInterval = 2500;
-let notes = [];
-let particles = [];
-let score = 0;
-let hp = 5;
-let combo = 0;
-let mode = 'add';
-let inputBuffer = "";
-let gameActive = false;
-let speed = 100;
-let baseBPM = 110;
-
-function resize() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-const POP_COLORS = ['#FF9A9E', '#FECFEF', '#a1c4fd', '#c2e9fb', '#fbc2eb', '#a6c1ee', '#fdcbf1', '#e6dee9'];
-
-class Note {
-    constructor(mode) {
-        this.x = Math.random() * (canvas.width - 100) + 50;
-        this.y = -60;
-        this.r = 35; 
-        this.color = POP_COLORS[Math.floor(Math.random() * POP_COLORS.length)];
-        
-        if (mode === 'add') {
-            const a = Math.floor(Math.random() * 10) + 1;
-            const b = Math.floor(Math.random() * 10) + 1;
-            this.text = `${a} + ${b}`;
-            this.answer = a + b;
-        } else if (mode === 'sub') {
-            const a = Math.floor(Math.random() * 10) + 5;
-            const b = Math.floor(Math.random() * (a - 1)) + 1;
-            this.text = `${a} - ${b}`;
-            this.answer = a - b;
-        } else if (mode === 'kuku') {
-            const a = Math.floor(Math.random() * 9) + 1;
-            const b = Math.floor(Math.random() * 9) + 1;
-            this.text = `${a} × ${b}`;
-            this.answer = a * b;
-        }
-    }
-
-    update(dt) {
-        this.y += speed * dt;
-    }
-
-    draw(ctx) {
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.fill();
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = '#fff'; 
-        ctx.stroke();
-
-        ctx.fillStyle = '#555'; 
-        ctx.font = 'bold 26px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.text, this.x, this.y);
-    }
-}
-
-class Particle {
-    constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.vx = (Math.random() - 0.5) * 20;
-        this.vy = (Math.random() - 0.5) * 20;
-        this.life = 1.0;
-        this.color = color;
-        this.size = Math.random() * 10 + 5;
-    }
-    update(dt) {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.life -= dt * 2;
-        this.size *= 0.95;
-    }
-    draw(ctx) {
-        ctx.globalAlpha = Math.max(0, this.life);
-        ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.rect(this.x, this.y, this.size, this.size);
-        ctx.fill();
-        ctx.globalAlpha = 1.0;
-    }
-}
-
-function startGame(difficulty) {
-    GameAudio.resume();
-    GameAudio.pickRandomBGM(); 
-
-    mode = selectedMode;
-    score = 0;
-    hp = 5;
-    combo = 0;
-    notes = [];
-    particles = [];
-    inputBuffer = "";
-    gameActive = true;
-
-    if (difficulty === "easy") {
-        speed = canvas.height / 10;
-        spawnInterval = 3500;
-        baseBPM = 100;
-    } else if (difficulty === "normal") {
-        speed = canvas.height / 7;
-        spawnInterval = 2500;
-        baseBPM = 120;
-    } else if (difficulty === "hard") {
-        speed = canvas.height / 4;
-        spawnInterval = 1800;
-        baseBPM = 140;
-    } else if (difficulty === "oni") {
-        speed = canvas.height / 1.5;
-        spawnInterval = 1200;
-        baseBPM = 180;
-    }
-
-    GameAudio.setTempo(baseBPM);
-    GameAudio.startBGM();
-
-    document.getElementById('menu-overlay').classList.add('hidden');
-    updateUI();
-    
-    lastTime = performance.now();
-    requestAnimationFrame(gameLoop);
-}
-
-function gameOver() {
-    gameActive = false;
-    GameAudio.stopBGM();
-    document.getElementById('menu-overlay').classList.remove('hidden');
-    document.getElementById('title-screen').classList.remove('hidden');
-    document.getElementById('difficulty-buttons').classList.add('hidden');
-    document.querySelector('#title-screen h1').textContent = `Game Over! Score: ${score}`;
-    document.querySelector('#title-screen p').textContent = "もういちど あそぶ？";
-}
-
-function updateUI() {
-    document.getElementById('score').textContent = `Score: ${score}`;
-    let hearts = "";
-    for(let i=0; i<hp; i++) hearts += "❤️";
-    document.getElementById('life').textContent = `HP: ${hearts}`;
-    document.getElementById('input-buffer').textContent = inputBuffer;
-    
-    const comboEl = document.getElementById('combo-display');
-    if (combo > 1) {
-        comboEl.textContent = `${combo} COMBO!`;
-        comboEl.style.opacity = 1;
-        comboEl.style.transform = "translateX(-50%) scale(1.3) rotate(-5deg)";
-        setTimeout(() => {
-             comboEl.style.transform = "translateX(-50%) scale(1) rotate(0deg)";
-        }, 100);
-    } else {
-        comboEl.textContent = "";
-    }
-}
-
-function checkAnswer() {
-    const val = parseInt(inputBuffer);
-    if (isNaN(val)) return;
-
-    let hitIndex = -1;
-    let lowestY = -1000;
-
-    for (let i = 0; i < notes.length; i++) {
-        if (notes[i].answer === val && notes[i].y > 0 && notes[i].y > lowestY) {
-            lowestY = notes[i].y;
-            hitIndex = i;
-        }
-    }
-
-    if (hitIndex !== -1) {
-        GameAudio.playSE('correct');
-        const note = notes[hitIndex];
-        for(let p=0; p<20; p++) {
-             particles.push(new Particle(note.x, note.y, POP_COLORS[Math.floor(Math.random()*POP_COLORS.length)]));
-        }
-
-        score += 100 + (combo * 10);
-        combo++;
-        notes.splice(hitIndex, 1);
-        inputBuffer = "";
-
-        if (score % 300 === 0) {
-            speed += 100;
-            spawnInterval = Math.max(600, spawnInterval - 300);
-            let newBPM = Math.min(220, baseBPM + Math.floor(score/500)*8);
-            GameAudio.setTempo(newBPM);
-        }
-    }
-    updateUI();
-}
-
-document.querySelectorAll('.key').forEach(key => {
-    const handleInput = (e) => {
-        e.preventDefault();
-        if (!gameActive) return;
-
-        const val = key.getAttribute('data-val');
-        GameAudio.playSE('tap');
-
-        if (val === 'DEL') {
-            inputBuffer = "";
-        } else if (val === 'OK') {
-            const answerVal = parseInt(inputBuffer);
-            let hit = notes.some(n => n.answer === answerVal && n.y > 0);
-            if (hit) {
-                checkAnswer();
-            } else {
-                if (inputBuffer !== "") {
-                    GameAudio.playSE('wrong');
-                    combo = 0;
-                    inputBuffer = "";
-                    hp--;
-                    let currentBPM = baseBPM + Math.floor(score/500)*8;
-                    GameAudio.setTempo(Math.max(100, currentBPM - 5));
-                    if (hp <= 0) gameOver();
-                }
-            }
-        } else {
-            if (inputBuffer.length < 3) inputBuffer += val;
-        }
-        updateUI();
-    };
-    key.addEventListener('touchstart', handleInput);
-    key.addEventListener('mousedown', handleInput);
-});
-
-function gameLoop(timestamp) {
-    if (!gameActive) return;
-    const dt = (timestamp - lastTime) / 1000;
-    lastTime = timestamp;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height - 60);
-    ctx.lineTo(canvas.width, canvas.height - 60);
-    ctx.strokeStyle = 'rgba(255, 111, 97, 0.5)';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([10, 10]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    spawnTimer += dt * 1000;
-    if (spawnTimer > spawnInterval) {
-        notes.push(new Note(mode));
-        spawnTimer = 0;
-    }
-
-    for (let i = notes.length - 1; i >= 0; i--) {
-        let note = notes[i];
-        note.update(dt);
-        note.draw(ctx);
-
-        if (note.y > canvas.height) {
-            notes.splice(i, 1);
-            combo = 0;
-            hp--;
-            GameAudio.playSE('wrong');
-            updateUI();
-            if (hp <= 0) {
-                gameOver();
-                return;
-            }
-        }
-    }
-
-    for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update(dt);
-        particles[i].draw(ctx);
-        if (particles[i].life <= 0) particles.splice(i, 1);
-    }
-    requestAnimationFrame(gameLoop);
-}
-</script>
-</body>
-</html>
