@@ -187,7 +187,7 @@
 
         /* ランキング表示用 */
         #ranking-container {
-            margin-top: 20px; /* 上部の隙間を少し広げた */
+            margin-top: 20px;
             background: rgba(255,255,255,0.8);
             padding: 15px;
             border-radius: 15px;
@@ -195,7 +195,6 @@
             width: 80%;
             max-width: 300px;
             text-align: center;
-            /* 中央寄せを強化 */
             margin-left: auto;
             margin-right: auto;
         }
@@ -243,7 +242,7 @@
             <div style="display:flex; flex-direction:column; align-items:center;">
                 <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
                 <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
-                <button class="btn btn-mode" onclick="selectMode('kuku')">かけざん (×)</button>
+                <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
             </div>
             <div id="ranking-container">
                 <div>🏆 ベストスコア 🏆</div>
@@ -287,6 +286,7 @@ let spawnTimer = 0;
 let notes = [];
 let particles = [];
 let questionCount = 0;
+let correctCount = 0; // ★ 追加：正解数カウント
 const POP_COLORS = ['#FF9A9E', '#FECFEF', '#a1c4fd', '#c2e9fb', '#fbc2eb', '#a6c1ee', '#fdcbf1', '#e6dee9'];
 
 /* -----------------------
@@ -299,10 +299,14 @@ function saveScore(newScore) {
         scores = JSON.parse(localStorage.getItem(KEY)) || [];
     } catch(e) {}
     
-    scores.push(newScore);
-    scores.sort((a, b) => b - a);
+    // スコアと一緒に正解数も保存する
+    scores.push({ score: newScore, count: correctCount });
+    
+    // スコアでソート (正解数も一緒に持ち運ぶため、オブジェクト形式で保存・処理)
+    scores.sort((a, b) => b.score - a.score);
     scores = scores.slice(0, 5);
     
+    // 保存時にはオブジェクトを文字列化
     localStorage.setItem(KEY, JSON.stringify(scores));
     updateRankingDisplay();
 }
@@ -322,8 +326,8 @@ function updateRankingDisplay() {
         scores.forEach((s, i) => {
             const div = document.createElement('div');
             div.className = `rank-item rank-${i+1}`;
-            // 修正箇所: 順位表記を「い」から「位」へ
-            div.textContent = `${i+1}位: ${s}点`;
+            // ★ 修正＆追加：順位表記を「位」にし、スコアと一緒に正解数も表示
+            div.textContent = `${i+1}位: ${s.score}点 (${s.count}問)`;
             listEl.appendChild(div);
         });
     }
@@ -337,7 +341,7 @@ function selectMode(modeName) {
 }
 
 /* -----------------------
-   GameAudio
+   GameAudio (変更なし)
 ------------------------ */
 const GameAudio = (function() {
     let ctx = null;
@@ -592,6 +596,7 @@ function startGame(difficulty) {
     hp = 5;
     combo = 0;
     questionCount = 0;
+    correctCount = 0; // ★ 修正：正解数をリセット
     notes = [];
     particles = [];
     inputBuffer = "";
@@ -628,17 +633,21 @@ function startGame(difficulty) {
 function gameOver() {
     gameActive = false;
     GameAudio.stopBGM();
-    saveScore(score);
+    // ★ 修正：saveScore関数内で正解数も保存
+    saveScore(score); 
 
     document.getElementById('menu-overlay').classList.remove('hidden');
     document.getElementById('title-screen').classList.remove('hidden');
     document.getElementById('difficulty-buttons').classList.add('hidden');
-    document.querySelector('#title-screen h1').textContent = `Game Over! Score: ${score}`;
+    // ★ 修正：ゲームオーバー画面にも正解数を表示
+    document.querySelector('#title-screen h1').textContent = `Game Over! Score: ${score} (${correctCount}問)`;
     document.querySelector('#title-screen p').textContent = "もういちど あそぶ？";
 }
 
 function updateUI() {
-    document.getElementById('score').textContent = `Score: ${score}`;
+    // ★ 修正：ヘッダーのスコア表示に正解数を追加
+    document.getElementById('score').textContent = `Score: ${score} (${correctCount}問)`;
+    
     let hearts = "";
     for(let i=0; i<hp; i++) hearts += "❤️";
     document.getElementById('life').textContent = `HP: ${hearts}`;
@@ -680,6 +689,7 @@ function checkAnswer() {
 
         score += 100 + (combo * 10);
         combo++;
+        correctCount++; // ★ 追加：正解数カウントアップ
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
