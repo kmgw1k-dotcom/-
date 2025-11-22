@@ -184,9 +184,18 @@
     <div id="menu-overlay">
         <h1>🎵 リズム計算カード</h1>
         <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
-        <button class="btn btn-mode" onclick="startGame('add')">たしざん (+)</button>
-        <button class="btn btn-mode" onclick="startGame('sub')">ひきざん (-)</button>
-        <button class="btn btn-mode" onclick="startGame('kuku')">九九 (×)</button>
+
+        <div style="margin-bottom:12px; text-align:center;">
+        <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
+        <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
+        <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
+    </div>
+
+<div id="difficulty-buttons" class="hidden" style="text-align:center;">
+        <p style="margin: 8px 0;">むずかしさをえらんでね</p>
+        <button class="btn" onclick="startGame(selectedMode, 'easy')">かんたん</button>
+        <button class="btn" onclick="startGame(selectedMode, 'normal')">ふつう</button>
+        <button class="btn" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
     </div>
 </div>
 
@@ -450,6 +459,13 @@
         }
     }
 
+let selectedMode = "add";
+
+function selectMode(mode) {
+    selectedMode = mode;
+    document.getElementById("difficulty-buttons").classList.remove("hidden");
+}
+
     function startGame(selectedMode) {
         Audio.resume(); // AudioContext起動
         mode = selectedMode;
@@ -460,9 +476,20 @@
         particles = [];
         inputBuffer = "";
         gameActive = true;
-        speed = canvas.height / 6;
-        spawnInterval = 2500;
-        baseBPM = 110;
+
+             if (difficulty === "easy") {
+            speed = canvas.height / 10;
+            spawnInterval = 3500;
+            baseBPM = 105;
+        } else if (difficulty === "normal") {
+            speed = canvas.height / 8;
+            spawnInterval = 2800;
+            baseBPM = 110;
+        } else { // "hard"
+            speed = canvas.height / 6;
+            spawnInterval = 2300;
+            baseBPM = 115;
+        }
 
         Audio.setTempo(baseBPM);
         Audio.startBGM();
