@@ -181,21 +181,23 @@
         <div class="key key-enter" data-val="OK">決定</div>
     </div>
 
-    <div id="menu-overlay">
-        <h1>🎵 リズム計算カード</h1>
-        <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
+   <div id="menu-overlay">
+    <h1>🎵 リズム計算カード</h1>
+    <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
 
-        <div style="margin-bottom:12px; text-align:center;">
-        <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
-        <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
-        <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
+    <!-- ▼ 計算モード選択 -->
+    <div style="margin-bottom:12px; text-align:center;">
+        <button class="btn btn-mode" type="button" onclick="selectMode('add')">たしざん (+)</button>
+        <button class="btn btn-mode" type="button" onclick="selectMode('sub')">ひきざん (-)</button>
+        <button class="btn btn-mode" type="button" onclick="selectMode('kuku')">九九 (×)</button>
     </div>
 
-<div id="difficulty-buttons" class="hidden" style="text-align:center;">
+    <!-- ▼ 難易度選択 -->
+    <div id="difficulty-buttons" class="hidden" style="text-align:center;">
         <p style="margin: 8px 0;">むずかしさをえらんでね</p>
-        <button class="btn" onclick="startGame(selectedMode, 'easy')">かんたん</button>
-        <button class="btn" onclick="startGame(selectedMode, 'normal')">ふつう</button>
-        <button class="btn" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
+        <button class="btn" type="button" onclick="startGame(selectedMode, 'easy')">かんたん</button>
+        <button class="btn" type="button" onclick="startGame(selectedMode, 'normal')">ふつう</button>
+        <button class="btn" type="button" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
     </div>
 </div>
 
