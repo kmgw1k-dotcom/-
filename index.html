@@ -10,7 +10,7 @@
             padding: 0;
             background-color: #1a1a2e;
             color: #fff;
-            font-family: 'Arial', sans-serif';
+            font-family: 'Arial', sans-serif; /* 修正: 余計な記号を削除 */
             overflow: hidden;
             touch-action: manipulation;
         }
@@ -18,7 +18,7 @@
         #game-container {
             position: relative;
             width: 100vw;
-            height: 100dvh;
+            height: 100vh; /* 互換性のためvhに変更 */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -181,24 +181,23 @@
         <div class="key key-enter" data-val="OK">決定</div>
     </div>
 
-    <!-- ▼ メニュー -->
     <div id="menu-overlay">
-        <h1>🎵 リズム計算カード</h1>
-        <p>BGMに合わせて計算しよう！<br>コンボをつなぐと曲が速くなるよ</p>
-
-        <!-- ▼ 計算モード -->
-        <div style="margin-bottom:12px; text-align:center;">
-            <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
-            <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
-            <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
+        <div id="title-screen">
+            <h1>🎵 リズム計算カード</h1>
+            <p>モードを選んでね！</p>
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <button class="btn btn-mode" onclick="selectMode('add')">たしざん (+)</button>
+                <button class="btn btn-mode" onclick="selectMode('sub')">ひきざん (-)</button>
+                <button class="btn btn-mode" onclick="selectMode('kuku')">九九 (×)</button>
+            </div>
         </div>
 
-        <!-- ▼ 難易度 -->
-        <div id="difficulty-buttons" class="hidden">
+        <div id="difficulty-buttons" class="hidden" style="display:flex; flex-direction:column; align-items:center;">
+            <h1>レベルをえらぼう</h1>
             <p style="margin: 8px 0;">むずかしさをえらんでね</p>
-            <button class="btn" onclick="startGame(selectedMode, 'easy')">かんたん</button>
-            <button class="btn" onclick="startGame(selectedMode, 'normal')">ふつう</button>
-            <button class="btn" onclick="startGame(selectedMode, 'hard')">むずかしい</button>
+            <button class="btn" onclick="startGame('easy')">かんたん</button>
+            <button class="btn" onclick="startGame('normal')">ふつう</button>
+            <button class="btn" onclick="startGame('hard')">むずかしい</button>
         </div>
     </div>
 </div>
@@ -208,18 +207,18 @@
    グローバル変数
 ------------------------ */
 let selectedMode = "add";
-let difficultyLevel = "easy";
 
 /* -----------------------
    モード選択 → 難易度ボタン表示
 ------------------------ */
 function selectMode(mode) {
     selectedMode = mode;
+    document.getElementById("title-screen").classList.add("hidden");
     document.getElementById("difficulty-buttons").classList.remove("hidden");
 }
 
 /* -----------------------
-   Audio（そのまま）
+   Audio
 ------------------------ */
 const Audio = (function() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -229,7 +228,7 @@ const Audio = (function() {
     const notes = {
         'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00,
         'A4': 440.00, 'B4': 493.88, 'C5': 523.25, 'D5': 587.33, 'E5': 659.25,
-        'G5': 783.99
+        'G5': 783.99, 'C6': 1046.50
     };
 
     function playTone(freq, type, duration, vol) {
@@ -436,14 +435,11 @@ class Particle {
 }
 
 /* -----------------------
-   startGame（完全修正版）
+   startGame（修正版）
 ------------------------ */
-function startGame(selectedMode, difficulty = "easy") {
-
-    difficultyLevel = difficulty;
-
+function startGame(difficulty) {
     Audio.resume();
-    mode = selectedMode;
+    mode = selectedMode; // グローバル変数からモードを取得
 
     score = 0;
     hp = 5;
@@ -453,24 +449,25 @@ function startGame(selectedMode, difficulty = "easy") {
     inputBuffer = "";
     gameActive = true;
 
-    /* ▼ 難易度セット */
+    /* ▼ 難易度設定 */
     if (difficulty === "easy") {
-        speed = canvas.height / 10;
+        speed = canvas.height / 10; // 遅い
         spawnInterval = 3500;
         baseBPM = 105;
     } else if (difficulty === "normal") {
-        speed = canvas.height / 8;
+        speed = canvas.height / 8;  // 普通
         spawnInterval = 2800;
         baseBPM = 110;
     } else {
-        speed = canvas.height / 6;
-        spawnInterval = 2300;
-        baseBPM = 115;
+        speed = canvas.height / 5;  // 速い
+        spawnInterval = 2000;
+        baseBPM = 120;
     }
 
     Audio.setTempo(baseBPM);
     Audio.startBGM();
 
+    // メニュー全体を隠す
     document.getElementById('menu-overlay').classList.add('hidden');
     updateUI();
     
@@ -482,8 +479,13 @@ function gameOver() {
     gameActive = false;
     Audio.stopBGM();
     document.getElementById('menu-overlay').classList.remove('hidden');
-    document.querySelector('#menu-overlay h1').textContent = `Game Over! Score: ${score}`;
-    document.querySelector('#menu-overlay p').textContent = "もう一度チャレンジ！";
+    
+    // タイトル画面に戻す準備
+    document.getElementById('title-screen').classList.remove('hidden');
+    document.getElementById('difficulty-buttons').classList.add('hidden');
+
+    document.querySelector('#title-screen h1').textContent = `Game Over! Score: ${score}`;
+    document.querySelector('#title-screen p').textContent = "もう一度あそぶ？";
 }
 
 function updateUI() {
