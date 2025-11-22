@@ -185,8 +185,9 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
+        /* ランキング表示用 */
         #ranking-container {
-            margin-top: 10px;
+            margin-top: 20px; /* 上部の隙間を少し広げた */
             background: rgba(255,255,255,0.8);
             padding: 15px;
             border-radius: 15px;
@@ -194,6 +195,9 @@
             width: 80%;
             max-width: 300px;
             text-align: center;
+            /* 中央寄せを強化 */
+            margin-left: auto;
+            margin-right: auto;
         }
         .rank-item {
             font-size: 18px;
@@ -282,7 +286,7 @@ let lastTime = 0;
 let spawnTimer = 0;
 let notes = [];
 let particles = [];
-let questionCount = 0; // 出題数カウント用
+let questionCount = 0;
 const POP_COLORS = ['#FF9A9E', '#FECFEF', '#a1c4fd', '#c2e9fb', '#fbc2eb', '#a6c1ee', '#fdcbf1', '#e6dee9'];
 
 /* -----------------------
@@ -318,7 +322,8 @@ function updateRankingDisplay() {
         scores.forEach((s, i) => {
             const div = document.createElement('div');
             div.className = `rank-item rank-${i+1}`;
-            div.textContent = `${i+1}い: ${s}点`;
+            // 修正箇所: 順位表記を「い」から「位」へ
+            div.textContent = `${i+1}位: ${s}点`;
             listEl.appendChild(div);
         });
     }
@@ -480,38 +485,30 @@ class Note {
         this.color = POP_COLORS[Math.floor(Math.random() * POP_COLORS.length)];
         
         // ▼▼▼ 出題数に応じた2桁確率の調整 ▼▼▼
-        questionCount++; // 何問目かカウントアップ
+        questionCount++; 
         
         let useTwoDigit = false;
         
         if (questionCount <= 4) {
-            // 1~4問目: 必ず1桁 (0%)
             useTwoDigit = false;
         } else if (questionCount <= 10) {
-            // 5~10問目: 約35%の確率で2桁
             if (Math.random() < 0.35) useTwoDigit = true;
         } else if (questionCount <= 20) {
-            // 11~20問目: 約40%の確率で2桁
             if (Math.random() < 0.4) useTwoDigit = true;
         } else {
-            // 21問目以降: 50%以上の確率で2桁
             if (Math.random() < 0.5) useTwoDigit = true;
         }
 
-        // 難易度別の桁数設定
         let minNum = 1;
         let maxNum = 9;
 
         if (useTwoDigit) {
-            // 2桁モードが当選した場合
             minNum = 10;
-            maxNum = 20; // 基本は10~20
+            maxNum = 20;
             
-            // 難しい・おにモードならもっと大きな数も出す
             if (difficultyLevel === 'hard') maxNum = 50;
             if (difficultyLevel === 'oni') maxNum = 99;
         } else {
-            // 1桁モード
             maxNum = 9;
         }
 
@@ -526,13 +523,11 @@ class Note {
             this.text = `${a} - ${b}`;
             this.answer = a - b;
         } else if (mode === 'kuku') {
-            // 九九は「全てモード」でも基本は1桁×1桁（学校準拠）
-            // おにモードだけ11〜19のインド式を混ぜる
             let kukuMax = 9;
             if (useTwoDigit && difficultyLevel === 'oni') kukuMax = 19;
             
             const a = Math.floor(Math.random() * kukuMax) + 1;
-            const b = Math.floor(Math.random() * 9) + 1; // 片方は1桁にしておく
+            const b = Math.floor(Math.random() * 9) + 1;
             this.text = `${a} × ${b}`;
             this.answer = a * b;
         }
@@ -596,7 +591,7 @@ function startGame(difficulty) {
     score = 0;
     hp = 5;
     combo = 0;
-    questionCount = 0; // 問題数リセット
+    questionCount = 0;
     notes = [];
     particles = [];
     inputBuffer = "";
@@ -688,7 +683,6 @@ function checkAnswer() {
         notes.splice(hitIndex, 1);
         inputBuffer = "";
 
-        // スムーズ加速
         let speedIncrement = 5; 
         if(difficultyLevel === 'oni') speedIncrement = 10;
         speed += speedIncrement;
